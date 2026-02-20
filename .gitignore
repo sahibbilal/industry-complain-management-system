@@ -1,0 +1,45 @@
+# ddev
+.ddev/
+
+# PDF files
+*.pdf
+
+# IDE and Editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS files
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Logs
+*.log
+logs/
+
+# Temporary files
+*.tmp
+*.temp
+*.cache
+
+# Environment files
+.env
+.env.local
+
+# Uploads (optional - you may want to keep this)
+# uploads/*
+
+# Node modules (if any)
+node_modules/
+
+# Composer
+vendor/
+composer.lock
+
+# Backup files
+*.bak
+*.backup
+*~
