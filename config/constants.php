@@ -33,7 +33,7 @@ define('ALLOWED_FILE_TYPES', ['pdf', 'doc', 'docx', 'jpg', 'jpeg', 'png', 'txt']
 define('ITEMS_PER_PAGE', 20);
 
 // System Settings
-define('SITE_NAME', 'ICMS - Industry Complaint Management System');
+define('SITE_NAME', 'ICMS');
 define('SITE_URL', 'http://localhost');
 
 // Session Settings
