@@ -1,5 +1,10 @@
     </main>
     
+    <?php if (isLoggedIn()): ?>
+        </div>
+    </div>
+    <?php endif; ?>
+
     <footer class="bg-light mt-5 py-4">
         <div class="container">
             <div class="row">
