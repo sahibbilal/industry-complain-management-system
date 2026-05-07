@@ -266,7 +266,7 @@ if (!isLoggedIn()) {
 
 <!-- CTA Section -->
 <div class="container mb-5">
-    <div class="card border-0 shadow-lg" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">
+    <div class="card border-0 shadow-lg" style="background: linear-gradient(135deg, #0f172a 0%, #1e3a8a 48%, #0f766e 120%);">
         <div class="card-body text-center text-white p-5">
             <h2 class="display-5 fw-bold mb-3">Ready to Get Started?</h2>
             <p class="lead mb-4">
@@ -395,43 +395,5 @@ if (!isLoggedIn()) {
     <?php endif; ?>
 </div>
 <?php endif; ?>
-
-<style>
-.hero-section {
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    border-radius: 0 0 50px 50px;
-}
-
-.feature-card {
-    transition: transform 0.3s ease, box-shadow 0.3s ease;
-}
-
-.feature-card:hover {
-    transform: translateY(-5px);
-    box-shadow: 0 10px 25px rgba(0,0,0,0.15) !important;
-}
-
-.dashboard-quick-action {
-    transition: transform 0.3s ease;
-}
-
-.dashboard-quick-action:hover {
-    transform: translateY(-5px);
-}
-
-.step-number {
-    box-shadow: 0 4px 15px rgba(0,0,0,0.2);
-}
-
-@media (max-width: 768px) {
-    .hero-section {
-        border-radius: 0;
-    }
-    
-    .display-3 {
-        font-size: 2.5rem;
-    }
-}
-</style>
 
 <?php require_once __DIR__ . '/includes/footer.php'; ?>

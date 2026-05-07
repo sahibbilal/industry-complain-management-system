@@ -73,6 +73,10 @@ $query = "SELECT c.*,
     cat.name as category_name,
     d.name as department_name,
     u.name as user_name,
+    CASE WHEN EXISTS (
+        SELECT 1 FROM feedback f
+        WHERE f.complaint_id = c.id AND f.user_id = c.user_id
+    ) THEN 1 ELSE 0 END as has_feedback,
     (SELECT COUNT(*) FROM complaint_attachments WHERE complaint_id = c.id) as attachment_count
     FROM complaints c
     LEFT JOIN complaint_categories cat ON c.category_id = cat.id
@@ -203,6 +207,11 @@ $categories = $db->query("SELECT * FROM complaint_categories WHERE status = 'act
                                                 <a href="/modules/complaints/view.php?id=<?php echo $complaint['id']; ?>" class="btn btn-sm btn-primary">
                                                     <i class="bi bi-eye"></i> View
                                                 </a>
+                                                <?php if (hasRole(ROLE_COMPLAINANT) && in_array($complaint['status'], [STATUS_RESOLVED, STATUS_CLOSED], true) && !$complaint['has_feedback']): ?>
+                                                    <a href="/modules/feedback/submit.php?id=<?php echo $complaint['id']; ?>" class="btn btn-sm btn-success ms-1">
+                                                        <i class="bi bi-star"></i> Feedback
+                                                    </a>
+                                                <?php endif; ?>
                                             </td>
                                         </tr>
                                     <?php endforeach; ?>

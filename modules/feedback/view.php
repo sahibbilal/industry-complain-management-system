@@ -80,7 +80,7 @@ $stats = $db->query("SELECT
                     <div class="card dashboard-stat-card success">
                         <div class="card-body">
                             <h5 class="card-title">Average Rating</h5>
-                            <h2 class="mb-0"><?php echo number_format($stats['avg_rating'], 1); ?>/5</h2>
+                            <h2 class="mb-0"><?php echo number_format((float)($stats['avg_rating'] ?? 0), 1); ?>/5</h2>
                         </div>
                     </div>
                 </div>
