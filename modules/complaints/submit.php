@@ -37,21 +37,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $stmt->execute([$categoryId]);
         $category = $stmt->fetch();
         
-        // Determine assigned department (from category or auto-routing)
-        $assignedDepartmentId = $category['default_department_id'] ?? null;
+        // Determine assigned department using the selected category first,
+        // then fall back to keyword-based routing.
+        $assignedDepartmentId = routeComplaintDepartment($categoryId, $title, $description, $db);
         
-        // Auto-routing based on keywords if no default department
-        if (!$assignedDepartmentId) {
-            $assignedDepartmentId = autoRouteComplaint($title, $description, $db);
-        }
-        
+        // Assign to an active department user when available.
+        $assignedUserId = getDepartmentComplaintAssignee($assignedDepartmentId, $db);
+
         // Calculate SLA deadline based on priority
         $slaDeadline = calculateSLADeadline($priority, $db);
         
         // Insert complaint
-        $stmt = $db->prepare("INSERT INTO complaints (tracking_number, user_id, category_id, title, description, priority, assigned_department_id, sla_deadline) VALUES (?, ?, ?, ?, ?, ?, ?, ?)");
+        $stmt = $db->prepare("INSERT INTO complaints (tracking_number, user_id, category_id, title, description, priority, assigned_department_id, assigned_user_id, sla_deadline) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)");
         
-        if ($stmt->execute([$trackingNumber, getCurrentUserId(), $categoryId, $title, $description, $priority, $assignedDepartmentId, $slaDeadline])) {
+        if ($stmt->execute([$trackingNumber, getCurrentUserId(), $categoryId, $title, $description, $priority, $assignedDepartmentId, $assignedUserId, $slaDeadline])) {
             $complaintId = $db->lastInsertId();
             
             // Add status history
@@ -85,28 +84,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $error = 'Failed to submit complaint. Please try again.';
         }
     }
-}
-
-/**
- * Auto-route complaint based on keywords
- */
-function autoRouteComplaint($title, $description, $db) {
-    $text = strtolower($title . ' ' . $description);
-    
-    // Get all categories with keywords
-    $categories = $db->query("SELECT * FROM complaint_categories WHERE status = 'active' AND keywords IS NOT NULL AND keywords != ''")->fetchAll();
-    
-    foreach ($categories as $category) {
-        $keywords = explode(',', strtolower($category['keywords']));
-        foreach ($keywords as $keyword) {
-            $keyword = trim($keyword);
-            if (!empty($keyword) && (strpos($text, $keyword) !== false)) {
-                return $category['default_department_id'];
-            }
-        }
-    }
-    
-    return null;
 }
 
 /**

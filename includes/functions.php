@@ -85,6 +85,72 @@ function calculateSimilarity($text1, $text2) {
 }
 
 /**
+ * Route a complaint to the most relevant department.
+ *
+ * Priority order:
+ * 1. The selected category's default department.
+ * 2. Keyword matches from active categories.
+ */
+function routeComplaintDepartment($categoryId, $title, $description, $db) {
+    if (!empty($categoryId)) {
+        $stmt = $db->prepare("SELECT c.default_department_id FROM complaint_categories c LEFT JOIN departments d ON c.default_department_id = d.id WHERE c.id = ? AND c.status = 'active' AND c.default_department_id IS NOT NULL AND d.status = 'active' LIMIT 1");
+        $stmt->execute([$categoryId]);
+        $departmentId = $stmt->fetchColumn();
+
+        if (!empty($departmentId)) {
+            return (int) $departmentId;
+        }
+    }
+
+    $searchText = strtolower(trim($title . ' ' . $description));
+    $categories = $db->query("SELECT c.name, c.default_department_id, c.keywords FROM complaint_categories c INNER JOIN departments d ON c.default_department_id = d.id WHERE c.status = 'active' AND c.default_department_id IS NOT NULL AND d.status = 'active' AND c.keywords IS NOT NULL AND c.keywords != ''")->fetchAll();
+
+    foreach ($categories as $category) {
+        $keywords = array_filter(array_map('trim', explode(',', strtolower((string) $category['keywords']))));
+        $categoryTerms = array_filter(array_map('trim', preg_split('/\s+/', strtolower((string) $category['name']))));
+        $terms = array_unique(array_merge($keywords, $categoryTerms));
+
+        foreach ($terms as $term) {
+            if ($term !== '' && stripos($searchText, $term) !== false) {
+                return (int) $category['default_department_id'];
+            }
+        }
+    }
+
+    return null;
+}
+
+/**
+ * Select an active department user to handle a complaint.
+ */
+function getDepartmentComplaintAssignee($departmentId, $db) {
+    if (empty($departmentId)) {
+        return null;
+    }
+
+    $stmt = $db->prepare("SELECT u.id
+        FROM users u
+        WHERE u.department_id = ?
+          AND u.status = 'active'
+          AND u.role IN (?, ?, ?)
+        ORDER BY FIELD(u.role, ?, ?, ?), u.id ASC
+        LIMIT 1");
+
+    $stmt->execute([
+        (int) $departmentId,
+        ROLE_SUPPORT_STAFF,
+        ROLE_MANAGER,
+        ROLE_QA_OFFICER,
+        ROLE_SUPPORT_STAFF,
+        ROLE_MANAGER,
+        ROLE_QA_OFFICER
+    ]);
+
+    $assigneeId = $stmt->fetchColumn();
+    return !empty($assigneeId) ? (int) $assigneeId : null;
+}
+
+/**
  * Redirect to URL
  */
 function redirect($url) {

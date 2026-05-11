@@ -44,6 +44,17 @@ if (hasRole(ROLE_COMPLAINANT) && $complaint['user_id'] != getCurrentUserId()) {
     redirect('/modules/complaints/list.php');
 }
 
+if (hasAnyRole([ROLE_SUPPORT_STAFF, ROLE_MANAGER]) && !hasRole(ROLE_ADMIN)) {
+    $currentUser = getCurrentUser();
+    $isDepartmentMatch = !empty($currentUser['department_id']) && (int) $complaint['assigned_department_id'] === (int) $currentUser['department_id'];
+    $isDirectAssignee = (int) $complaint['assigned_user_id'] === (int) getCurrentUserId();
+
+    if (!$isDepartmentMatch && !$isDirectAssignee) {
+        setFlashMessage('danger', 'You do not have permission to view this complaint.');
+        redirect('/modules/complaints/list.php');
+    }
+}
+
 // Get attachments
 $stmt = $db->prepare("SELECT * FROM complaint_attachments WHERE complaint_id = ? ORDER BY created_at");
 $stmt->execute([$complaintId]);

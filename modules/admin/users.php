@@ -9,6 +9,13 @@ $pageTitle = 'User Management';
 $db = getDBConnection();
 $error = '';
 $success = '';
+$departmentRoles = [ROLE_SUPPORT_STAFF, ROLE_MANAGER, ROLE_QA_OFFICER];
+$operationalDepartmentNames = ['IT Department', 'HR Department', 'Billing Department', 'Maintenance Department'];
+$allowedDepartmentIds = [];
+
+$allowedDeptStmt = $db->prepare("SELECT id FROM departments WHERE status = 'active' AND name IN (?, ?, ?, ?)");
+$allowedDeptStmt->execute($operationalDepartmentNames);
+$allowedDepartmentIds = array_map('intval', $allowedDeptStmt->fetchAll(PDO::FETCH_COLUMN));
 
 // Handle form submissions
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -26,6 +33,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $error = 'Invalid email address.';
         } elseif (strlen($password) < 6) {
             $error = 'Password must be at least 6 characters long.';
+        } elseif (in_array($role, $departmentRoles, true) && empty($departmentId)) {
+            $error = 'Department is required for Support Staff, Manager, and QA Officer roles.';
+        } elseif (in_array($role, $departmentRoles, true) && !in_array((int) $departmentId, $allowedDepartmentIds, true)) {
+            $error = 'For department-scoped roles, choose IT, HR, Billing, or Maintenance.';
         } else {
             $result = registerUser($name, $email, $password, $role);
             if ($result['success']) {
@@ -47,6 +58,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $id = intval($_POST['id'] ?? 0);
         $name = sanitizeInput($_POST['name'] ?? '');
         $email = sanitizeInput($_POST['email'] ?? '');
+        $password = $_POST['password'] ?? '';
         $role = sanitizeInput($_POST['role'] ?? ROLE_COMPLAINANT);
         $departmentId = !empty($_POST['department_id']) ? intval($_POST['department_id']) : null;
         $status = sanitizeInput($_POST['status'] ?? 'active');
@@ -55,9 +67,30 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $error = 'Name and email are required.';
         } elseif (!validateEmail($email)) {
             $error = 'Invalid email address.';
+        } elseif (!empty($password) && strlen($password) < 6) {
+            $error = 'Password must be at least 6 characters long.';
+        } elseif (in_array($role, $departmentRoles, true) && empty($departmentId)) {
+            $error = 'Department is required for Support Staff, Manager, and QA Officer roles.';
+        } elseif (in_array($role, $departmentRoles, true) && !in_array((int) $departmentId, $allowedDepartmentIds, true)) {
+            $error = 'For department-scoped roles, choose IT, HR, Billing, or Maintenance.';
         } else {
-            $stmt = $db->prepare("UPDATE users SET name = ?, email = ?, role = ?, department_id = ?, status = ? WHERE id = ?");
-            if ($stmt->execute([$name, $email, $role, $departmentId, $status, $id])) {
+            $updateFields = [
+                'name = ?',
+                'email = ?',
+                'role = ?',
+                'department_id = ?',
+                'status = ?'
+            ];
+            $params = [$name, $email, $role, $departmentId, $status];
+
+            if (!empty($password)) {
+                $updateFields[] = 'password = ?';
+                $params[] = password_hash($password, PASSWORD_DEFAULT);
+            }
+
+            $params[] = $id;
+            $stmt = $db->prepare("UPDATE users SET " . implode(', ', $updateFields) . " WHERE id = ?");
+            if ($stmt->execute($params)) {
                 logActivity(getCurrentUserId(), 'user_update', "Updated user: $name ($email)");
                 $success = 'User updated successfully.';
             } else {
@@ -95,6 +128,9 @@ $users = $db->query("SELECT u.*, d.name as department_name
 
 // Get all departments for dropdown
 $departments = $db->query("SELECT * FROM departments WHERE status = 'active' ORDER BY name")->fetchAll();
+$departmentOptions = array_values(array_filter($departments, function ($dept) use ($operationalDepartmentNames) {
+    return in_array($dept['name'], $operationalDepartmentNames, true);
+}));
 
 // Get user for editing
 $editUser = null;
@@ -228,6 +264,13 @@ if (isset($_GET['edit'])) {
                                minlength="6" required>
                         <div class="form-text">Password must be at least 6 characters long.</div>
                     </div>
+                    <?php else: ?>
+                    <div class="mb-3">
+                        <label for="password" class="form-label">New Password</label>
+                        <input type="password" class="form-control" id="password" name="password" 
+                               minlength="6">
+                        <div class="form-text">Leave blank to keep the current password.</div>
+                    </div>
                     <?php endif; ?>
                     
                     <div class="row">
@@ -247,13 +290,14 @@ if (isset($_GET['edit'])) {
                             <label for="department_id" class="form-label">Department</label>
                             <select class="form-select" id="department_id" name="department_id">
                                 <option value="">None</option>
-                                <?php foreach ($departments as $dept): ?>
+                                <?php foreach ($departmentOptions as $dept): ?>
                                     <option value="<?php echo $dept['id']; ?>" 
                                         <?php echo ($editUser['department_id'] ?? '') == $dept['id'] ? 'selected' : ''; ?>>
                                         <?php echo htmlspecialchars($dept['name']); ?>
                                     </option>
                                 <?php endforeach; ?>
                             </select>
+                            <div class="form-text">Available departments: IT, HR, Billing, Maintenance. Required for Support Staff, Manager, and QA Officer. Admin roles can access all complaints.</div>
                         </div>
                     </div>
                     

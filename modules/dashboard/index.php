@@ -3,7 +3,8 @@ require_once __DIR__ . '/../../includes/header.php';
 require_once __DIR__ . '/../../includes/auth.php';
 require_once __DIR__ . '/../../includes/functions.php';
 
-requireAnyRole([ROLE_SUPPORT_STAFF, ROLE_MANAGER, ROLE_ADMIN, ROLE_SENIOR_MANAGEMENT]);
+$requireComment = '';
+requireRole(ROLE_ADMIN);
 $pageTitle = 'Dashboard';
 
 // Load Chart.js in header for dashboard
@@ -40,17 +41,34 @@ $stats = $db->prepare("SELECT
 $stats->execute([$dateFrom, $dateTo]);
 $overallStats = $stats->fetch();
 
+// Determine scope for non-admin users (support staff / manager should see only their department or own assigned complaints)
+$currentUser = getCurrentUser();
+$currentRole = $currentUser['role'] ?? getCurrentUserRole();
+$scopeSql = '';
+$scopeParams = [];
+if (in_array($currentRole, [ROLE_SUPPORT_STAFF, ROLE_MANAGER], true)) {
+    $deptId = !empty($currentUser['department_id']) ? (int) $currentUser['department_id'] : null;
+    if ($deptId) {
+        $scopeSql = " AND (assigned_department_id = ? OR assigned_user_id = ?)";
+        $scopeParams = [$deptId, getCurrentUserId()];
+    } else {
+        $scopeSql = " AND assigned_user_id = ?";
+        $scopeParams = [getCurrentUserId()];
+    }
+}
+
 // Complaints by Category
+// Complaints by Category (apply scope when present)
 $categoryStats = $db->prepare("SELECT 
     cat.name as category_name,
     COUNT(c.id) as count
     FROM complaints c
     LEFT JOIN complaint_categories cat ON c.category_id = cat.id
-    WHERE DATE(c.created_at) BETWEEN ? AND ?
+    WHERE DATE(c.created_at) BETWEEN ? AND ?" . $scopeSql . "
     GROUP BY cat.id, cat.name
     ORDER BY count DESC
     LIMIT 10");
-$categoryStats->execute([$dateFrom, $dateTo]);
+$categoryStats->execute(array_merge([$dateFrom, $dateTo], $scopeParams));
 $categoryData = $categoryStats->fetchAll();
 
 // Complaints by Department
@@ -61,45 +79,61 @@ $deptStats = $db->prepare("SELECT
     SUM(CASE WHEN c.status = 'closed' THEN 1 ELSE 0 END) as closed
     FROM complaints c
     LEFT JOIN departments d ON c.assigned_department_id = d.id
-    WHERE DATE(c.created_at) BETWEEN ? AND ?
+    WHERE DATE(c.created_at) BETWEEN ? AND ?" . $scopeSql . "
     GROUP BY d.id, d.name
     ORDER BY count DESC");
-$deptStats->execute([$dateFrom, $dateTo]);
+$deptStats->execute(array_merge([$dateFrom, $dateTo], $scopeParams));
 $deptData = $deptStats->fetchAll();
 
+// Complaints by Assignee Role (for admin role-based view)
+$assigneeRoleStats = $db->prepare("SELECT COALESCE(au.role, 'unassigned') as role, COUNT(c.id) as count
+    FROM complaints c
+    LEFT JOIN users au ON c.assigned_user_id = au.id
+    WHERE DATE(c.created_at) BETWEEN ? AND ?" . $scopeSql . "
+    GROUP BY au.role
+    ORDER BY count DESC");
+$assigneeRoleStats->execute(array_merge([$dateFrom, $dateTo], $scopeParams));
+$assigneeRoleData = $assigneeRoleStats->fetchAll();
+
+// Users by Role (quick reference)
+$userRoleStats = $db->query("SELECT role, COUNT(*) as count FROM users GROUP BY role")->fetchAll();
+
 // Daily trend (last 30 days)
+// Daily trend (last 30 days) with scope
 $trendData = $db->prepare("SELECT 
     DATE(created_at) as date,
     COUNT(*) as count
     FROM complaints
-    WHERE DATE(created_at) BETWEEN ? AND ?
+    WHERE DATE(created_at) BETWEEN ? AND ?" . $scopeSql . "
     GROUP BY DATE(created_at)
     ORDER BY date ASC");
-$trendData->execute([$dateFrom, $dateTo]);
+$trendData->execute(array_merge([$dateFrom, $dateTo], $scopeParams));
 $trendDataResult = $trendData->fetchAll();
 
 // SLA Compliance
-$slaStats = $db->prepare("SELECT 
+// SLA Compliance with scope
+$slaSql = "SELECT 
     COUNT(*) as total,
     SUM(CASE WHEN status IN ('resolved', 'closed') AND resolved_at <= sla_deadline THEN 1 ELSE 0 END) as on_time,
     SUM(CASE WHEN status IN ('resolved', 'closed') AND resolved_at > sla_deadline THEN 1 ELSE 0 END) as overdue,
     SUM(CASE WHEN status NOT IN ('resolved', 'closed') AND NOW() > sla_deadline THEN 1 ELSE 0 END) as pending_overdue
     FROM complaints
-    WHERE sla_deadline IS NOT NULL
-    AND DATE(created_at) BETWEEN ? AND ?");
-$slaStats->execute([$dateFrom, $dateTo]);
+    WHERE sla_deadline IS NOT NULL AND DATE(created_at) BETWEEN ? AND ?" . $scopeSql;
+$slaStats = $db->prepare($slaSql);
+$slaStats->execute(array_merge([$dateFrom, $dateTo], $scopeParams));
 $slaData = $slaStats->fetch();
 
 // Average resolution time by priority
+// Average resolution time by priority with scope
 $resolutionTime = $db->prepare("SELECT 
     priority,
     AVG(TIMESTAMPDIFF(HOUR, created_at, resolved_at)) as avg_hours
     FROM complaints
     WHERE status IN ('resolved', 'closed')
     AND resolved_at IS NOT NULL
-    AND DATE(created_at) BETWEEN ? AND ?
+    AND DATE(created_at) BETWEEN ? AND ?" . $scopeSql . "
     GROUP BY priority");
-$resolutionTime->execute([$dateFrom, $dateTo]);
+$resolutionTime->execute(array_merge([$dateFrom, $dateTo], $scopeParams));
 $resolutionData = $resolutionTime->fetchAll();
 ?>
 
@@ -253,6 +287,65 @@ $resolutionData = $resolutionTime->fetchAll();
                 </div>
             </div>
         </div>
+        
+        <!-- Role-based Views (Admin) -->
+        <?php if (hasAnyRole([ROLE_ADMIN, ROLE_SENIOR_MANAGEMENT])): ?>
+        <div class="col-lg-6 mb-4">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">Complaints by Assignee Role</h5>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead>
+                                <tr>
+                                    <th>Role</th>
+                                    <th>Assigned Complaints</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <?php foreach ($assigneeRoleData as $r): ?>
+                                    <tr>
+                                        <td><?php echo htmlspecialchars(ucfirst(str_replace('_', ' ', $r['role']))); ?></td>
+                                        <td><?php echo $r['count']; ?></td>
+                                    </tr>
+                                <?php endforeach; ?>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-lg-6 mb-4">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">Users by Role</h5>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead>
+                                <tr>
+                                    <th>Role</th>
+                                    <th>User Count</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <?php foreach ($userRoleStats as $ur): ?>
+                                    <tr>
+                                        <td><?php echo htmlspecialchars(ucfirst(str_replace('_', ' ', $ur['role']))); ?></td>
+                                        <td><?php echo $ur['count']; ?></td>
+                                    </tr>
+                                <?php endforeach; ?>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <?php endif; ?>
         
         <!-- SLA Compliance -->
         <div class="col-lg-6 mb-4">

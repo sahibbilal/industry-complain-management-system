@@ -20,20 +20,26 @@ $offset = ($page - 1) * ITEMS_PER_PAGE;
 $whereConditions = [];
 $params = [];
 
-if (hasRole(ROLE_COMPLAINANT)) {
+// Use the canonical user record from DB for role and department checks
+$currentUser = getCurrentUser();
+$currentRole = $currentUser['role'] ?? getCurrentUserRole();
+
+if ($currentRole === ROLE_COMPLAINANT) {
     $whereConditions[] = "c.user_id = ?";
     $params[] = getCurrentUserId();
-} elseif (hasAnyRole([ROLE_SUPPORT_STAFF, ROLE_MANAGER])) {
+} elseif (in_array($currentRole, [ROLE_SUPPORT_STAFF, ROLE_MANAGER], true)) {
     // Show complaints assigned to user's department or assigned to user
-    $user = getCurrentUser();
-    if ($user['department_id']) {
+    $deptId = !empty($currentUser['department_id']) ? (int) $currentUser['department_id'] : null;
+    if ($deptId) {
         $whereConditions[] = "(c.assigned_department_id = ? OR c.assigned_user_id = ?)";
-        $params[] = $user['department_id'];
+        $params[] = $deptId;
         $params[] = getCurrentUserId();
     } else {
         $whereConditions[] = "c.assigned_user_id = ?";
         $params[] = getCurrentUserId();
     }
+} elseif ($currentRole === ROLE_ADMIN || $currentRole === ROLE_SENIOR_MANAGEMENT) {
+    // Admins / senior management see all complaints (no additional where clause)
 }
 
 if ($statusFilter) {

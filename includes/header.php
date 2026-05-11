@@ -47,25 +47,27 @@ require_once __DIR__ . '/auth.php';
                         <a class="nav-link" href="/modules/complaints/submit.php"><i class="bi bi-plus-circle"></i> Submit Complaint</a>
                     </li>
                     <?php endif; ?>
-                    <?php if (hasAnyRole([ROLE_SUPPORT_STAFF, ROLE_MANAGER, ROLE_ADMIN])): ?>
+                    <?php if (hasAnyRole([ROLE_ADMIN])): ?>
                     <li class="nav-item">
                         <a class="nav-link" href="/modules/dashboard/index.php"><i class="bi bi-speedometer2"></i> Dashboard</a>
                     </li>
                     <?php endif; ?>
                     <?php if (hasAnyRole([ROLE_ADMIN, ROLE_SENIOR_MANAGEMENT])): ?>
-                    <li class="nav-item dropdown">
-                        <a class="nav-link dropdown-toggle" href="#" id="adminDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
-                            <i class="bi bi-gear"></i> Admin
-                        </a>
-                        <ul class="dropdown-menu">
-                            <li><a class="dropdown-item" href="/modules/admin/departments.php">Departments</a></li>
-                            <li><a class="dropdown-item" href="/modules/admin/users.php">Users</a></li>
-                            <li><a class="dropdown-item" href="/modules/admin/categories.php">Categories</a></li>
-                            <li><a class="dropdown-item" href="/modules/admin/settings.php">Settings</a></li>
-                            <li><hr class="dropdown-divider"></li>
-                            <li><a class="dropdown-item" href="/modules/admin/audit_logs.php">Audit Logs</a></li>
-                        </ul>
-                    </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="/modules/admin/departments.php"><i class="bi bi-building"></i> Departments</a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="/modules/admin/users.php"><i class="bi bi-people"></i> Users</a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="/modules/admin/categories.php"><i class="bi bi-tags"></i> Categories</a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="/modules/admin/settings.php"><i class="bi bi-sliders"></i> Settings</a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="/modules/admin/audit_logs.php"><i class="bi bi-journal-text"></i> Audit Logs</a>
+                        </li>
                     <?php endif; ?>
                 </ul>
 

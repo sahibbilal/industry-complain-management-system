@@ -77,7 +77,7 @@ if (!isLoggedIn()) {
                     <div class="mb-3">
                         <i class="bi bi-file-earmark-text text-primary" style="font-size: 3rem;"></i>
                     </div>
-                    <h3 class="display-4 fw-bold text-primary mb-2"><?php echo number_format($stats['total_complaints']); ?></h3>
+                    <h3 class="display-4 fw-bold text-primary mb-2"><?php echo number_format((float) ($stats['total_complaints'] ?? 0)); ?></h3>
                     <p class="text-muted mb-0">Total Complaints Processed</p>
                 </div>
             </div>
@@ -88,7 +88,7 @@ if (!isLoggedIn()) {
                     <div class="mb-3">
                         <i class="bi bi-check-circle text-success" style="font-size: 3rem;"></i>
                     </div>
-                    <h3 class="display-4 fw-bold text-success mb-2"><?php echo number_format($stats['resolved']); ?></h3>
+                    <h3 class="display-4 fw-bold text-success mb-2"><?php echo number_format((float) ($stats['resolved'] ?? 0)); ?></h3>
                     <p class="text-muted mb-0">Successfully Resolved</p>
                 </div>
             </div>
@@ -99,7 +99,7 @@ if (!isLoggedIn()) {
                     <div class="mb-3">
                         <i class="bi bi-people text-info" style="font-size: 3rem;"></i>
                     </div>
-                    <h3 class="display-4 fw-bold text-info mb-2"><?php echo number_format($stats['total_users']); ?></h3>
+                    <h3 class="display-4 fw-bold text-info mb-2"><?php echo number_format((float) ($stats['total_users'] ?? 0)); ?></h3>
                     <p class="text-muted mb-0">Registered Users</p>
                 </div>
             </div>
@@ -304,6 +304,7 @@ if (!isLoggedIn()) {
     </div>
     
     <div class="row g-4">
+        <?php if (hasRole(ROLE_COMPLAINANT)): ?>
         <div class="col-md-4">
             <div class="card border-0 shadow-sm h-100 dashboard-quick-action">
                 <div class="card-body text-center p-5">
@@ -320,6 +321,7 @@ if (!isLoggedIn()) {
                 </div>
             </div>
         </div>
+        <?php endif; ?>
         
         <div class="col-md-4">
             <div class="card border-0 shadow-sm h-100 dashboard-quick-action">
@@ -365,11 +367,13 @@ if (!isLoggedIn()) {
                         <i class="bi bi-speedometer2 text-primary"></i> Quick Access
                     </h5>
                     <div class="row g-3">
+                        <?php if (hasRole(ROLE_COMPLAINANT)): ?>
                         <div class="col-md-3">
                             <a href="/modules/dashboard/index.php" class="btn btn-outline-primary w-100">
                                 <i class="bi bi-speedometer2"></i> Dashboard
                             </a>
                         </div>
+                        <?php endif; ?>
                         <div class="col-md-3">
                             <a href="/modules/complaints/list.php" class="btn btn-outline-primary w-100">
                                 <i class="bi bi-list-ul"></i> All Complaints
@@ -382,11 +386,13 @@ if (!isLoggedIn()) {
                             </a>
                         </div>
                         <?php endif; ?>
+                        <?php if (hasRole(ROLE_COMPLAINANT)): ?>
                         <div class="col-md-3">
                             <a href="/modules/feedback/view.php" class="btn btn-outline-primary w-100">
                                 <i class="bi bi-star"></i> Feedback
                             </a>
                         </div>
+                        <?php endif; ?>
                     </div>
                 </div>
             </div>
